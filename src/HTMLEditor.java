@@ -7,6 +7,11 @@
  *
  * @author chech
  */
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
 import javax.swing.*;
 import javax.swing.text.*;
 import javax.swing.event.*;
@@ -16,11 +21,15 @@ import java.awt.print.PrinterException;
 import java.io.*;
 import java.util.Arrays;
 import java.util.List;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreeSelectionModel;
 
 public class HTMLEditor extends JFrame implements ActionListener {
     private JTextArea textArea;
     private JTextArea lineNumbersTextArea;
     private JFileChooser fileChooser;
+    private JTree domTree;
     private List<String> reservedWords = Arrays.asList(
         "html", "head", "body", "title", "div", "p", "span", "a", "img", "table",
         "tr", "td", "ul", "ol", "li", "form", "input", "button"
@@ -42,6 +51,15 @@ public class HTMLEditor extends JFrame implements ActionListener {
         lineNumbersTextArea.setBackground(Color.LIGHT_GRAY);
         lineNumbersTextArea.setEditable(false);
         lineNumbersTextArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        
+        // Crear el árbol del DOM
+    domTree = new JTree();
+    domTree.setFont(new Font("Monospaced", Font.PLAIN, 12));
+    domTree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
+    
+    // Crear el JScrollPane y establecer su tamaño preferido
+    JScrollPane treeScrollPane = new JScrollPane(domTree);
+    treeScrollPane.setPreferredSize(new Dimension(600, 600));
 
         // Agregar el área de texto y los números de línea a un JScrollPane
         JScrollPane scrollPane = new JScrollPane(textArea);
@@ -79,6 +97,7 @@ public class HTMLEditor extends JFrame implements ActionListener {
         Container container = getContentPane();
         container.setLayout(new BorderLayout());
         container.add(scrollPane, BorderLayout.CENTER);
+        container.add(treeScrollPane, BorderLayout.EAST);
         setJMenuBar(menuBar);
 
         // Configurar el selector de archivos
@@ -87,6 +106,11 @@ public class HTMLEditor extends JFrame implements ActionListener {
         setVisible(true);
         
         
+        
+        // Agregar el árbol al contenedor
+        container.add(new JScrollPane(domTree), BorderLayout.EAST);
+
+        setVisible(true);
     }
 
     // Método para manejar los eventos del menú
@@ -132,6 +156,9 @@ public class HTMLEditor extends JFrame implements ActionListener {
             textArea.read(br, null);
             br.close();
             textArea.requestFocus();
+            
+            // Actualizar el árbol del DOM
+            updateDOMTree();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -176,6 +203,36 @@ public class HTMLEditor extends JFrame implements ActionListener {
             lineNumbersTextArea.setText(sb.toString());
         }
     }
+    
+    // Método para actualizar el árbol del DOM
+    private void updateDOMTree() {
+    try {
+        String html = textArea.getText();
+        Document document = Jsoup.parse(html);
+
+        Element rootElement = document.children().first();
+        DefaultMutableTreeNode rootNode = new DefaultMutableTreeNode(rootElement.tagName());
+        createDOMTree(rootElement, rootNode);
+
+        DefaultTreeModel treeModel = new DefaultTreeModel(rootNode);
+        domTree.setModel(treeModel);
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
+
+    // Método auxiliar para crear el árbol del DOM recursivamente
+    private void createDOMTree(Element element, DefaultMutableTreeNode treeNode) {
+    DefaultMutableTreeNode textNode = new DefaultMutableTreeNode(element.ownText());
+    treeNode.add(textNode);
+    
+    Elements children = element.children();
+    for (Element child : children) {
+        DefaultMutableTreeNode childNode = new DefaultMutableTreeNode(child.tagName());
+        treeNode.add(childNode);
+        createDOMTree(child, childNode);
+    }
+}
     
     // Método para resaltar las palabras reservadas de HTML
 private void highlightReservedWords() {
