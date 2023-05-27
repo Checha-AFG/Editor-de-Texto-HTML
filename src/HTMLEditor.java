@@ -1,39 +1,33 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Main.java to edit this template
- */
 
-/**
- *
- * @author chech
- */
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
-
+//Este es el bueno 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.text.*;
-import javax.swing.event.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.print.PrinterException;
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreeSelectionModel;
 
 public class HTMLEditor extends JFrame implements ActionListener {
-    private JTextArea textArea;
+
+    private JTextPane textPane;
     private JTextArea lineNumbersTextArea;
     private JFileChooser fileChooser;
     private JTree domTree;
     private List<String> reservedWords = Arrays.asList(
-        "html", "head", "body", "title", "div", "p", "span", "a", "img", "table",
-        "tr", "td", "ul", "ol", "li", "form", "input", "button"
-        // Agrega aquí más palabras reservadas de HTML
+            "html", "head", "body", "title", "div", "p", "span", "a", "img", "table",
+            "tr", "td", "ul", "ol", "li", "form", "input", "button"
+    // Agrega aquí más palabras reservadas de HTML
     );
 
     public HTMLEditor() {
@@ -42,28 +36,28 @@ public class HTMLEditor extends JFrame implements ActionListener {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         // Crear el área de texto
-        textArea = new JTextArea();
-        textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        textArea.getDocument().addDocumentListener(new LineNumberUpdater());
+        textPane = new JTextPane();
+        textPane.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        textPane.getDocument().addDocumentListener(new SyntaxHighlighter());
 
         // Crear el área de texto para los números de línea
-        lineNumbersTextArea = new JTextArea();
+        lineNumbersTextArea = new JTextArea("1");
         lineNumbersTextArea.setBackground(Color.LIGHT_GRAY);
         lineNumbersTextArea.setEditable(false);
         lineNumbersTextArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        
-        // Crear el árbol del DOM
-    domTree = new JTree();
-    domTree.setFont(new Font("Monospaced", Font.PLAIN, 12));
-    domTree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
-    
-    // Crear el JScrollPane y establecer su tamaño preferido
-    JScrollPane treeScrollPane = new JScrollPane(domTree);
-    treeScrollPane.setPreferredSize(new Dimension(600, 600));
 
-        // Agregar el área de texto y los números de línea a un JScrollPane
-        JScrollPane scrollPane = new JScrollPane(textArea);
+        // Crear el JScrollPane y establecer su tamaño preferido
+        JScrollPane scrollPane = new JScrollPane(textPane);
         scrollPane.setRowHeaderView(lineNumbersTextArea);
+
+        // Crear el árbol del DOM
+        domTree = new JTree();
+        domTree.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        domTree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
+
+        // Crear el JScrollPane para el árbol del DOM
+        JScrollPane treeScrollPane = new JScrollPane(domTree);
+        treeScrollPane.setPreferredSize(new Dimension(200, 0));
 
         // Crear el menú y los elementos
         JMenuBar menuBar = new JMenuBar();
@@ -93,180 +87,209 @@ public class HTMLEditor extends JFrame implements ActionListener {
         printMenuItem.addActionListener(this);
         exitMenuItem.addActionListener(this);
 
-        // Configurar el contenedor principal
+        // Obtener el contenedor principal
         Container container = getContentPane();
         container.setLayout(new BorderLayout());
         container.add(scrollPane, BorderLayout.CENTER);
         container.add(treeScrollPane, BorderLayout.EAST);
         setJMenuBar(menuBar);
 
-        // Configurar el selector de archivos
-        fileChooser = new JFileChooser();
-
-        setVisible(true);
-        
-        
-        
-        // Agregar el árbol al contenedor
-        container.add(new JScrollPane(domTree), BorderLayout.EAST);
-
         setVisible(true);
     }
 
-    // Método para manejar los eventos del menú
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(HTMLEditor::new);
+    }
+
+    @Override
     public void actionPerformed(ActionEvent e) {
         String command = e.getActionCommand();
 
         if (command.equals("Nuevo")) {
-            textArea.setText("");
+            nuevoDocumento();
         } else if (command.equals("Abrir")) {
-            int result = fileChooser.showOpenDialog(this);
-            if (result == JFileChooser.APPROVE_OPTION) {
-                File file = fileChooser.getSelectedFile();
-                openFile(file);
-            }
+            abrirDocumento();
         } else if (command.equals("Guardar")) {
-            int result = fileChooser.showSaveDialog(this);
-            if (result == JFileChooser.APPROVE_OPTION) {
-                File file = fileChooser.getSelectedFile();
-                saveFile(file);
-            }
+            guardarDocumento();
         } else if (command.equals("Guardar Como")) {
-            int result = fileChooser.showSaveDialog(this);
-            if (result == JFileChooser.APPROVE_OPTION) {
-                File file = fileChooser.getSelectedFile();
-                saveFile(file);
-            }
+            guardarDocumentoComo();
         } else if (command.equals("Imprimir")) {
-            try {
-                textArea.print();
-            } catch (PrinterException ex) {
-                ex.printStackTrace();
-            }
+            imprimirDocumento();
         } else if (command.equals("Salir")) {
-            System.exit(0);
+            salir();
         }
     }
 
-    // Método para abrir un archivo y mostrarlo en el editor de texto
-    private void openFile(File file) {
+    private void nuevoDocumento() {
+        textPane.setText("");
+    }
+
+    private void abrirDocumento() {
+        if (fileChooser == null) {
+            fileChooser = new JFileChooser();
+        }
+
+        int result = fileChooser.showOpenDialog(this);
+
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File file = fileChooser.getSelectedFile();
+
+            try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+                StringBuilder sb = new StringBuilder();
+                String line;
+
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line).append("\n");
+                }
+
+                textPane.setText(sb.toString());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void guardarDocumento() {
+        if (fileChooser == null) {
+            fileChooser = new JFileChooser();
+        }
+
+        int result = fileChooser.showSaveDialog(this);
+
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File file = fileChooser.getSelectedFile();
+
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+                writer.write(textPane.getText());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void guardarDocumentoComo() {
+        if (fileChooser == null) {
+            fileChooser = new JFileChooser();
+        }
+
+        int result = fileChooser.showSaveDialog(this);
+
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File file = fileChooser.getSelectedFile();
+
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+                writer.write(textPane.getText());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void imprimirDocumento() {
         try {
-            FileReader reader = new FileReader(file);
-            BufferedReader br = new BufferedReader(reader);
-            textArea.read(br, null);
-            br.close();
-            textArea.requestFocus();
-            
-            // Actualizar el árbol del DOM
-            updateDOMTree();
-        } catch (IOException e) {
+            // Imprimir el contenido del JTextPane
+            textPane.print();
+        } catch (PrinterException e) {
             e.printStackTrace();
         }
     }
 
-    // Método para guardar el contenido del editor de texto en un archivo
-    private void saveFile(File file) {
-        try {
-            FileWriter writer = new FileWriter(file);
-            BufferedWriter bw = new BufferedWriter(writer);
-            textArea.write(bw);
-            bw.close();
-            textArea.requestFocus();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    private void salir() {
+        System.exit(0);
     }
 
-    // Clase interna para actualizar el número de líneas al editar el texto
-    class LineNumberUpdater implements DocumentListener {
-        public void insertUpdate(DocumentEvent e) {
-            updateLineNumbers();
-            
+    private class SyntaxHighlighter implements DocumentListener {
+
+        private StyleContext styleContext;
+        private AttributeSet keywordStyle;
+        private AttributeSet normalStyle;
+
+        public SyntaxHighlighter() {
+            styleContext = StyleContext.getDefaultStyleContext();
+            keywordStyle = styleContext.addAttribute(styleContext.getEmptySet(), StyleConstants.Foreground, Color.BLUE);
+            normalStyle = styleContext.addAttribute(styleContext.getEmptySet(), StyleConstants.Foreground, Color.BLACK);
         }
 
-        public void removeUpdate(DocumentEvent e) {
-            updateLineNumbers();
-            
-        }
+        private void applyHighlighting(Document document) throws BadLocationException {
+            String text = document.getText(0, document.getLength());
 
-        public void changedUpdate(DocumentEvent e) {
+            // Remover estilos anteriores
+            StyledDocument styledDocument = textPane.getStyledDocument();
+            styledDocument.setCharacterAttributes(0, text.length(), normalStyle, true);
+
+            // Resaltar palabras reservadas
+            for (String word : reservedWords) {
+                int index = 0;
+                while (index >= 0) {
+                    index = text.indexOf(word, index);
+                    if (index >= 0) {
+                        int endIndex = index + word.length();
+                        boolean isWordBoundary = isWordBoundary(text, index, endIndex);
+                        if (isWordBoundary) {
+                            styledDocument.setCharacterAttributes(index, word.length(), keywordStyle, true);
+                        }
+                        index = endIndex;
+                    }
+                }
+            }
+
+            // Actualizar los números de línea
             updateLineNumbers();
-            
         }
 
         private void updateLineNumbers() {
-            int totalLines = textArea.getLineCount();
+            Document doc = textPane.getDocument();
+            int lineCount = doc.getDefaultRootElement().getElementCount();
             StringBuilder sb = new StringBuilder();
-            for (int i = 1; i <= totalLines; i++) {
+
+            for (int i = 1; i <= lineCount; i++) {
                 sb.append(i).append("\n");
             }
+
             lineNumbersTextArea.setText(sb.toString());
         }
-    }
-    
-    // Método para actualizar el árbol del DOM
-    private void updateDOMTree() {
-    try {
-        String html = textArea.getText();
-        Document document = Jsoup.parse(html);
 
-        Element rootElement = document.children().first();
-        DefaultMutableTreeNode rootNode = new DefaultMutableTreeNode(rootElement.tagName());
-        createDOMTree(rootElement, rootNode);
-
-        DefaultTreeModel treeModel = new DefaultTreeModel(rootNode);
-        domTree.setModel(treeModel);
-    } catch (Exception e) {
-        e.printStackTrace();
-    }
-}
-
-    // Método auxiliar para crear el árbol del DOM recursivamente
-    private void createDOMTree(Element element, DefaultMutableTreeNode treeNode) {
-    DefaultMutableTreeNode textNode = new DefaultMutableTreeNode(element.ownText());
-    treeNode.add(textNode);
-    
-    Elements children = element.children();
-    for (Element child : children) {
-        DefaultMutableTreeNode childNode = new DefaultMutableTreeNode(child.tagName());
-        treeNode.add(childNode);
-        createDOMTree(child, childNode);
-    }
-}
-    
-    // Método para resaltar las palabras reservadas de HTML
-private void highlightReservedWords() {
-    DefaultStyledDocument document = (DefaultStyledDocument) textArea.getDocument();
-    String content = textArea.getText();
-
-    // Eliminar cualquier estilo anterior
-    StyleContext sc = StyleContext.getDefaultStyleContext();
-    AttributeSet normalStyle = sc.addAttribute(SimpleAttributeSet.EMPTY, StyleConstants.Foreground, Color.BLACK);
-    document.setCharacterAttributes(0, document.getLength(), normalStyle, true);
-
-    // Resaltar las palabras reservadas
-    for (String word : reservedWords) {
-        int index = 0;
-        while (index >= 0) {
-            index = content.indexOf(word, index);
-            if (index >= 0) {
-                AttributeSet highlightStyle = sc.addAttribute(SimpleAttributeSet.EMPTY, StyleConstants.Foreground, Color.BLUE);
-                document.setCharacterAttributes(index, word.length(), highlightStyle, true);
-                index += word.length();
+        private boolean isWordBoundary(String text, int startIndex, int endIndex) {
+            if (startIndex == 0 && endIndex == text.length()) {
+                return true;
+            } else if (startIndex == 0) {
+                char nextChar = text.charAt(endIndex);
+                return !Character.isLetterOrDigit(nextChar);
+            } else if (endIndex == text.length()) {
+                char prevChar = text.charAt(startIndex - 1);
+                return !Character.isLetterOrDigit(prevChar);
+            } else {
+                char prevChar = text.charAt(startIndex - 1);
+                char nextChar = text.charAt(endIndex);
+                return !Character.isLetterOrDigit(prevChar) && !Character.isLetterOrDigit(nextChar);
             }
+        }
+
+        @Override
+        public void insertUpdate(DocumentEvent e) {
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    applyHighlighting(e.getDocument());
+                } catch (BadLocationException ex) {
+                    ex.printStackTrace();
+                }
+            });
+        }
+
+        @Override
+        public void removeUpdate(DocumentEvent e) {
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    applyHighlighting(e.getDocument());
+                } catch (BadLocationException ex) {
+                    ex.printStackTrace();
+                }
+            });
+        }
+
+        @Override
+        public void changedUpdate(DocumentEvent e) {
+            // No se usa para documentos sin estilos
         }
     }
 }
-    
-     public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
-                new HTMLEditor();
-            }
-        });
-    }
-
-}
-
-
-
