@@ -1,8 +1,10 @@
-<HTML>
-<HEAD>
-<TITLE>ejemplo hola mundo</TITLE>
-</HEAD>
-<BODY>
-<P>Hola Mundo</P>
-</BODY>
-</HTML>
+<html>
+<head>
+<title>ejemplo hola mundo</title>
+</head>
+<body>
+<p>Hola Mundo</p>
+</body>
+</html>
+
+prueba para comprobar si este es el directorio del github

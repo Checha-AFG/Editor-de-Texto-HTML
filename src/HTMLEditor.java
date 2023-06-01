@@ -1,19 +1,14 @@
-
-//Este es el bueno 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.*;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.print.PrinterException;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.Arrays;
 import java.util.List;
 import javax.swing.tree.TreeSelectionModel;
@@ -27,7 +22,7 @@ public class HTMLEditor extends JFrame implements ActionListener {
     private List<String> reservedWords = Arrays.asList(
             "html", "head", "body", "title", "div", "p", "span", "a", "img", "table",
             "tr", "td", "ul", "ol", "li", "form", "input", "button"
-    // Agrega aquí más palabras reservadas de HTML
+            // Agrega aquí más palabras reservadas de HTML
     );
 
     public HTMLEditor() {
@@ -143,6 +138,7 @@ public class HTMLEditor extends JFrame implements ActionListener {
                 }
 
                 textPane.setText(sb.toString());
+                updateDOMTree();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -196,6 +192,28 @@ public class HTMLEditor extends JFrame implements ActionListener {
 
     private void salir() {
         System.exit(0);
+    }
+
+    private void updateDOMTree() {
+        String html = textPane.getText();
+        DefaultMutableTreeNode root = new DefaultMutableTreeNode("html");
+        DefaultTreeModel treeModel = new DefaultTreeModel(root);
+        domTree.setModel(treeModel);
+
+        // Lógica básica de análisis del HTML
+        // Aquí se puede mejorar para casos más complejos
+        int startIndex = html.indexOf('<');
+        while (startIndex >= 0) {
+            int endIndex = html.indexOf('>', startIndex);
+            if (endIndex >= 0) {
+                String tag = html.substring(startIndex + 1, endIndex);
+                DefaultMutableTreeNode node = new DefaultMutableTreeNode(tag);
+                treeModel.insertNodeInto(node, root, root.getChildCount());
+                startIndex = html.indexOf('<', endIndex);
+            } else {
+                break;
+            }
+        }
     }
 
     private class SyntaxHighlighter implements DocumentListener {
