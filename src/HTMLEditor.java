@@ -8,6 +8,8 @@ import javax.swing.tree.TreeSelectionModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.print.PrinterException;
 import java.io.*;
 import java.util.Arrays;
@@ -34,6 +36,7 @@ public class HTMLEditor extends JFrame implements ActionListener {
         textPane = new JTextPane();
         textPane.setFont(new Font("Monospaced", Font.PLAIN, 12));
         textPane.getDocument().addDocumentListener(new SyntaxHighlighter());
+        textPane.addKeyListener(new KeyClosingTagListener());
 
         // Crear el área de texto para los números de línea
         lineNumbersTextArea = new JTextArea("1");
@@ -220,34 +223,33 @@ public class HTMLEditor extends JFrame implements ActionListener {
             }
         }
     }
-    
+
     private void buscarTexto() {
-    String searchTerm = JOptionPane.showInputDialog(this, "Ingrese el texto a buscar:");
-    if (searchTerm != null && !searchTerm.isEmpty()) {
-        buscarEnTexto(searchTerm);
-    }
-}
-
-private void buscarEnTexto(String searchTerm) {
-    Document document = textPane.getDocument();
-    int startIndex = 0;
-    try {
-        while (startIndex + searchTerm.length() <= document.getLength()) {
-            String text = document.getText(startIndex, searchTerm.length());
-            if (text.equalsIgnoreCase(searchTerm)) {
-                textPane.setCaretPosition(startIndex);
-                textPane.moveCaretPosition(startIndex + searchTerm.length());
-                textPane.requestFocusInWindow();
-                return;
-            }
-            startIndex++;
+        String searchTerm = JOptionPane.showInputDialog(this, "Ingrese el texto a buscar:");
+        if (searchTerm != null && !searchTerm.isEmpty()) {
+            buscarEnTexto(searchTerm);
         }
-        JOptionPane.showMessageDialog(this, "Texto no encontrado.");
-    } catch (BadLocationException e) {
-        e.printStackTrace();
     }
-}
 
+    private void buscarEnTexto(String searchTerm) {
+        Document document = textPane.getDocument();
+        int startIndex = 0;
+        try {
+            while (startIndex + searchTerm.length() <= document.getLength()) {
+                String text = document.getText(startIndex, searchTerm.length());
+                if (text.equalsIgnoreCase(searchTerm)) {
+                    textPane.setCaretPosition(startIndex);
+                    textPane.moveCaretPosition(startIndex + searchTerm.length());
+                    textPane.requestFocusInWindow();
+                    return;
+                }
+                startIndex++;
+            }
+            JOptionPane.showMessageDialog(this, "Texto no encontrado.");
+        } catch (BadLocationException e) {
+            e.printStackTrace();
+        }
+    }
 
     private class SyntaxHighlighter implements DocumentListener {
 
@@ -340,26 +342,92 @@ private void buscarEnTexto(String searchTerm) {
 
         @Override
         public void changedUpdate(DocumentEvent e) {
-            // Cambios en atributos no son relevantes para el resaltado
+            // No se usa para documentos de texto sin formato
         }
+    }
+
+    
+  private class KeyClosingTagListener extends KeyAdapter {
+    private static final String[] SELF_CLOSING_TAGS = {
+            "br", "hr", "img", "input", "link", "meta"
+    };
+
+    @Override
+    public void keyTyped(KeyEvent e) {
+        if (e.getKeyChar() == '>') {
+            insertClosingTag();
+        }
+    }
+
+    private void insertClosingTag() {
+        int caretPosition = textPane.getCaretPosition();
+        Document doc = textPane.getDocument();
+        StringBuilder sb = new StringBuilder();
+
+        try {
+            // Obtener el contenido del documento antes del caret
+            sb.append(doc.getText(0, caretPosition));
+
+            // Obtener el último tag abierto
+            String lastOpenedTag = getLastOpenedTag(sb.toString());
+
+            // Verificar si el último tag es un tag de autocierre
+            if (isSelfClosingTag(lastOpenedTag)) {
+                // No se necesita cerrar el tag
+                return;
+            }
+
+            // Obtener el nombre del último tag abierto
+            String tagName = getTagName(lastOpenedTag);
+
+            // Construir el tag de cierre correspondiente
+            String closingTag = "</" + tagName + ">";
+
+            // Insertar el carácter > seguido del tag de cierre en el documento
+            sb.append(">").append(closingTag);
+
+            // Obtener el contenido del documento después del caret
+            sb.append(doc.getText(caretPosition, doc.getLength() - caretPosition));
+
+            // Reemplazar el contenido del documento con el nuevo contenido
+            doc.remove(0, doc.getLength());
+            doc.insertString(0, sb.toString(), null);
+
+            // Actualizar el caretPosition
+            textPane.setCaretPosition(caretPosition + closingTag.length() + 2);
+        } catch (BadLocationException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private String getLastOpenedTag(String text) {
+        int lastIndex = text.lastIndexOf('<');
+        int nextSpaceIndex = text.indexOf(' ', lastIndex);
+
+        if (nextSpaceIndex != -1) {
+            return text.substring(lastIndex + 1, nextSpaceIndex);
+        } else {
+            return text.substring(lastIndex + 1);
+        }
+    }
+
+    private String getTagName(String tag) {
+        int index = tag.indexOf('>');
+        if (index != -1) {
+            return tag.substring(0, index);
+        } else {
+            return tag;
+        }
+    }
+
+    private boolean isSelfClosingTag(String tag) {
+        for (String selfClosingTag : SELF_CLOSING_TAGS) {
+            if (selfClosingTag.equalsIgnoreCase(tag)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
-class HtmlTreeNode extends DefaultMutableTreeNode {
-    private String tag;
-    private int level;
-
-    public HtmlTreeNode(String tag, int level) {
-        super(tag);
-        this.tag = tag;
-        this.level = level;
-    }
-
-    public String getTag() {
-        return tag;
-    }
-
-    public int getLevel() {
-        return level;
-    }
 }
