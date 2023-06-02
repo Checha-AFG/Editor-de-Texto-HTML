@@ -4,6 +4,7 @@ import javax.swing.event.DocumentListener;
 import javax.swing.text.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreeSelectionModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -11,7 +12,6 @@ import java.awt.print.PrinterException;
 import java.io.*;
 import java.util.Arrays;
 import java.util.List;
-import javax.swing.tree.TreeSelectionModel;
 
 public class HTMLEditor extends JFrame implements ActionListener {
 
@@ -61,6 +61,7 @@ public class HTMLEditor extends JFrame implements ActionListener {
         JMenuItem openMenuItem = new JMenuItem("Abrir");
         JMenuItem saveMenuItem = new JMenuItem("Guardar");
         JMenuItem saveAsMenuItem = new JMenuItem("Guardar Como");
+        JMenuItem searchMenuItem = new JMenuItem("Buscar");
         JMenuItem printMenuItem = new JMenuItem("Imprimir");
         JMenuItem exitMenuItem = new JMenuItem("Salir");
 
@@ -69,6 +70,7 @@ public class HTMLEditor extends JFrame implements ActionListener {
         fileMenu.add(openMenuItem);
         fileMenu.add(saveMenuItem);
         fileMenu.add(saveAsMenuItem);
+        fileMenu.add(searchMenuItem);
         fileMenu.add(printMenuItem);
         fileMenu.addSeparator();
         fileMenu.add(exitMenuItem);
@@ -79,6 +81,7 @@ public class HTMLEditor extends JFrame implements ActionListener {
         openMenuItem.addActionListener(this);
         saveMenuItem.addActionListener(this);
         saveAsMenuItem.addActionListener(this);
+        searchMenuItem.addActionListener(this);
         printMenuItem.addActionListener(this);
         exitMenuItem.addActionListener(this);
 
@@ -108,6 +111,8 @@ public class HTMLEditor extends JFrame implements ActionListener {
             guardarDocumento();
         } else if (command.equals("Guardar Como")) {
             guardarDocumentoComo();
+        } else if (command.equals("Buscar")) {
+            buscarTexto();
         } else if (command.equals("Imprimir")) {
             imprimirDocumento();
         } else if (command.equals("Salir")) {
@@ -215,6 +220,34 @@ public class HTMLEditor extends JFrame implements ActionListener {
             }
         }
     }
+    
+    private void buscarTexto() {
+    String searchTerm = JOptionPane.showInputDialog(this, "Ingrese el texto a buscar:");
+    if (searchTerm != null && !searchTerm.isEmpty()) {
+        buscarEnTexto(searchTerm);
+    }
+}
+
+private void buscarEnTexto(String searchTerm) {
+    Document document = textPane.getDocument();
+    int startIndex = 0;
+    try {
+        while (startIndex + searchTerm.length() <= document.getLength()) {
+            String text = document.getText(startIndex, searchTerm.length());
+            if (text.equalsIgnoreCase(searchTerm)) {
+                textPane.setCaretPosition(startIndex);
+                textPane.moveCaretPosition(startIndex + searchTerm.length());
+                textPane.requestFocusInWindow();
+                return;
+            }
+            startIndex++;
+        }
+        JOptionPane.showMessageDialog(this, "Texto no encontrado.");
+    } catch (BadLocationException e) {
+        e.printStackTrace();
+    }
+}
+
 
     private class SyntaxHighlighter implements DocumentListener {
 
@@ -307,7 +340,26 @@ public class HTMLEditor extends JFrame implements ActionListener {
 
         @Override
         public void changedUpdate(DocumentEvent e) {
-            // No se usa para documentos sin estilos
+            // Cambios en atributos no son relevantes para el resaltado
         }
+    }
+}
+
+class HtmlTreeNode extends DefaultMutableTreeNode {
+    private String tag;
+    private int level;
+
+    public HtmlTreeNode(String tag, int level) {
+        super(tag);
+        this.tag = tag;
+        this.level = level;
+    }
+
+    public String getTag() {
+        return tag;
+    }
+
+    public int getLevel() {
+        return level;
     }
 }
