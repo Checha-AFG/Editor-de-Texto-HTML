@@ -203,26 +203,33 @@ public class HTMLEditor extends JFrame implements ActionListener {
     }
 
     private void updateDOMTree() {
-        String html = textPane.getText();
-        DefaultMutableTreeNode root = new DefaultMutableTreeNode("html");
-        DefaultTreeModel treeModel = new DefaultTreeModel(root);
-        domTree.setModel(treeModel);
+    String html = textPane.getText();
+    DefaultMutableTreeNode root = new DefaultMutableTreeNode("html");
+    DefaultMutableTreeNode currentParent = root;
+    DefaultTreeModel treeModel = new DefaultTreeModel(root);
+    domTree.setModel(treeModel);
 
-        // Lógica básica de análisis del HTML
-        // Aquí se puede mejorar para casos más complejos
         int startIndex = html.indexOf('<');
         while (startIndex >= 0) {
             int endIndex = html.indexOf('>', startIndex);
             if (endIndex >= 0) {
                 String tag = html.substring(startIndex + 1, endIndex);
-                DefaultMutableTreeNode node = new DefaultMutableTreeNode(tag);
-                treeModel.insertNodeInto(node, root, root.getChildCount());
+                if (tag.startsWith("/")) {
+                    // Es una etiqueta de cierre, retrocedemos un nivel en la jerarquía
+                    currentParent = (DefaultMutableTreeNode) currentParent.getParent();
+                } else {
+                    // Es una etiqueta de apertura, creamos un nuevo nodo y avanzamos un nivel en la jerarquía
+                    DefaultMutableTreeNode node = new DefaultMutableTreeNode(tag);
+                    treeModel.insertNodeInto(node, currentParent, currentParent.getChildCount());
+                    currentParent = node;
+                }
                 startIndex = html.indexOf('<', endIndex);
             } else {
                 break;
             }
         }
     }
+
 
     private void buscarTexto() {
         String searchTerm = JOptionPane.showInputDialog(this, "Ingrese el texto a buscar:");
